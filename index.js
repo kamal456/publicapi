@@ -4,86 +4,31 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const API_KEY = "CAB123";
-
 let queue = [];
 
-// ===============================
-// 🔧 Middleware
 // ===============================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ===============================
-// 🔐 Security (UPDATED)
+// 📲 QR PAGE
 // ===============================
-app.use((req, res, next) => {
+app.get("/scan", (req, res) => {
+  const { loc } = req.query;
 
-  // ✅ Allow public routes (QR + form submit)
-  if (
-    req.path.startsWith("/cabScan") ||
-    (req.path === "/cab/location" && req.method === "POST")
-  ) {
-    return next();
-  }
-
-  // 🔐 Protect other APIs
-  if (req.headers["x-api-key"] !== API_KEY) {
-    return res.status(403).send("Unauthorized");
-  }
-
-  next();
-});
-
-// ===============================
-// 🧪 Health
-// ===============================
-app.get("/health", (req, res) => res.send("OK"));
-
-// ===============================
-// 🚖 QR UI (PUBLIC)
-// ===============================
-app.get("/cabScan", (req, res) => {
-  const { cabId } = req.query;
-
-  if (!cabId) {
-    return res.send("Invalid QR");
-  }
+  if (!loc) return res.send("Invalid QR");
 
   res.send(`
     <html>
-    <head>
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-
     <body style="font-family: Arial; padding:20px">
 
-      <h2>🚖 Cab ID: ${cabId}</h2>
+      <h2>🔐 Location: ${loc}</h2>
 
-      <form action="/cab/location" method="POST">
-
-        <input type="hidden" name="cabId" value="${cabId}" />
+      <form action="/security/scan" method="POST">
+        <input type="hidden" name="loc" value="${loc}" />
         <input type="hidden" name="lat" id="lat" />
         <input type="hidden" name="lng" id="lng" />
-
-        <label><b>Select Shift:</b></label><br>
-        <select name="shift">
-          <option>GENERAL</option>
-          <option>FIRST</option>
-          <option>SECOND</option>
-        </select>
-
-        <br><br>
-
-        <label><b>Scan Type:</b></label><br>
-        <select name="scanType">
-          <option>BOARDING</option>
-          <option>REACHING</option>
-          <option>DROPPING</option>
-        </select>
-
-        <br><br>
 
         <button type="submit">Submit</button>
       </form>
@@ -101,54 +46,43 @@ app.get("/cabScan", (req, res) => {
 });
 
 // ===============================
-// 📥 POST (Driver → API)
+// 📥 STORE TEMP DATA
 // ===============================
-app.post("/cab/location", (req, res) => {
+app.post("/security/scan", (req, res) => {
 
-  const cabId = req.body.cabId;
-  const lat = req.body.lat;
-  const lng = req.body.lng;
-  const shift = req.body.shift;
-  const scanType = req.body.scanType;
+  const { loc, lat, lng } = req.body;
 
-  if (!cabId || !lat || !lng) {
-    return res.status(400).send("Missing fields");
+  if (!loc || !lat || !lng) {
+    return res.status(400).send("Missing data");
   }
 
   const record = {
-    cabId,
-    lat,
-    lng,
-    shift,
-    scanType,
+    loc,
+    scannedLat: lat,
+    scannedLng: lng,
     time: new Date()
   };
 
   queue.push(record);
 
-  console.log("📥 Received:", record);
+  console.log("📥 Scan stored:", record);
 
-  res.send(`
-    <h3>✅ Submitted Successfully</h3>
-    <p>Cab ID: ${cabId}</p>
-    <p>Lat: ${lat}</p>
-    <p>Lng: ${lng}</p>
-  `);
+  res.send(`<h3>✅ Scan Submitted</h3>`);
 });
 
 // ===============================
-// 📤 GET (Local → API)
+// 📤 LOCAL SERVER WILL FETCH
 // ===============================
-app.get("/cab/location", (req, res) => {
+app.get("/security/pull", (req, res) => {
   const data = [...queue];
-  queue = [];
+  queue = []; // clear after fetch
 
-  console.log("📤 Sent:", data.length);
+  console.log("📤 Sent to local:", data.length);
 
   res.json(data);
 });
 
 // ===============================
 app.listen(PORT, () => {
-  console.log("🚀 Server running on port", PORT);
+  console.log("🚀 Public API running on", PORT);
 });
