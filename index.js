@@ -20,28 +20,43 @@ app.get("/scan", (req, res) => {
   if (!loc) return res.send("Invalid QR");
 
   res.send(`
-    <html>
-    <body style="font-family: Arial; padding:20px">
+    <form id="scanForm" action="/security/scan" method="POST">
+    <input type="hidden" name="loc" value="${loc}">
+    <input type="hidden" name="lat" id="lat">
+    <input type="hidden" name="lng" id="lng">
 
-      <h2>🔐 Location: ${loc}</h2>
+    <button type="button" onclick="sendLocation()">Submit</button>
+</form>
 
-      <form action="/security/scan" method="POST">
-        <input type="hidden" name="loc" value="${loc}" />
-        <input type="hidden" name="lat" id="lat" />
-        <input type="hidden" name="lng" id="lng" />
+<script>
+function sendLocation() {
 
-        <button type="submit">Submit</button>
-      </form>
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported.");
+        return;
+    }
 
-      <script>
-        navigator.geolocation.getCurrentPosition(function(pos){
-          document.getElementById("lat").value = pos.coords.latitude;
-          document.getElementById("lng").value = pos.coords.longitude;
-        });
-      </script>
+    navigator.geolocation.getCurrentPosition(
+        function(pos) {
 
-    </body>
-    </html>
+            document.getElementById("lat").value = pos.coords.latitude;
+            document.getElementById("lng").value = pos.coords.longitude;
+
+            document.getElementById("scanForm").submit();
+        },
+
+        function(err) {
+            alert("Location permission denied.");
+            console.log(err);
+        },
+
+        {
+            enableHighAccuracy: true,
+            timeout: 10000
+        }
+    );
+}
+</script>
   `);
 });
 
